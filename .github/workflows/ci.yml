@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --filter @nexaerp/api db:validate
+      - run: docker compose config -q
+      - run: pnpm audit --audit-level high
+        continue-on-error: true
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nexaerp
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: nexaerp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexaerp -d nexaerp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://nexaerp:ci-password@localhost:5432/nexaerp_test
+      DIRECT_URL: postgresql://nexaerp:ci-password@localhost:5432/nexaerp_test
+      TEST_DATABASE_URL: postgresql://nexaerp:ci-password@localhost:5432/nexaerp_test
+      SUPABASE_JWT_SECRET: ci-only-not-a-real-secret
+      WEB_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration

@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nestjs:
+        patterns: ['@nestjs/*']
+      prisma:
+        patterns: ['prisma', '@prisma/*']
+      eslint:
+        patterns: ['eslint*', '@eslint/*', 'typescript-eslint']
+      testing:
+        patterns: ['vitest', '@vitest/*', 'jest', 'ts-jest', '@testing-library/*']
+      nextjs:
+        patterns: ['next', 'react', 'react-dom']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

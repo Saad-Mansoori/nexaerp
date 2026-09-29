@@ -1,0 +1,32 @@
+{
+  "name": "nexaerp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @nexaerp/shared build && pnpm --parallel --filter @nexaerp/api --filter @nexaerp/web dev",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "typecheck": "pnpm --filter @nexaerp/shared build && pnpm --filter @nexaerp/api typecheck && pnpm --filter @nexaerp/web typecheck",
+    "test": "pnpm --filter @nexaerp/shared build && pnpm -r --if-present test",
+    "test:integration": "pnpm --filter @nexaerp/shared build && pnpm --filter @nexaerp/api test:integration",
+    "db:migrate": "pnpm --filter @nexaerp/api db:migrate",
+    "db:generate": "pnpm --filter @nexaerp/api db:generate",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1"
+  }
+}

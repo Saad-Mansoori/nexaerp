@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+out
+coverage
+pnpm-lock.yaml
+apps/api/src/generated
+docs
+PROJECT_RULES.md
+next-env.d.ts
