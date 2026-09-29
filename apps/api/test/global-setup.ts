@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 
-import { loadEnvFiles } from '../src/core/config/env-file.js';
+import { loadEnvFiles } from '../src/core/config/env-file.ts';
 
 export default function globalSetup(): void {
   loadEnvFiles();

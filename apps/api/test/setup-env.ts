@@ -1,4 +1,4 @@
-import { loadEnvFiles } from '../src/core/config/env-file.js';
+import { loadEnvFiles } from '../src/core/config/env-file.ts';
 
 loadEnvFiles();
 
