@@ -10,3 +10,173 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ============================================================================
+// TENANCY
+// ============================================================================
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model Tenant {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String       @unique @db.VarChar(64)
+  name      String       @db.VarChar(128)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @db.Timestamptz
+  updatedAt DateTime     @updatedAt @db.Timestamptz
+  deletedAt DateTime?    @db.Timestamptz
+
+  memberships  TenantMembership[]
+  roles        Role[]
+  auditLogs    AuditLog[]
+  settings     TenantSettings?
+
+  @@index([status])
+  @@map("tenants")
+}
+
+model TenantSettings {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @unique @db.Uuid @map("tenant_id")
+  timezone  String   @default("UTC") @db.VarChar(64)
+  dateFormat String  @default("YYYY-MM-DD") @db.VarChar(32) @map("date_format")
+  timeFormat String  @default("HH:mm") @db.VarChar(16) @map("time_format")
+  currency  String   @default("USD") @db.VarChar(3)
+  locale    String   @default("en-US") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+// ============================================================================
+// IDENTITY
+// ============================================================================
+
+model User {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId   String              @unique @db.Uuid @map("auth_user_id")
+  email        String              @db.VarChar(255)
+  name         String?             @db.VarChar(128)
+  avatarUrl    String?             @db.VarChar(512) @map("avatar_url")
+  createdAt    DateTime            @default(now()) @db.Timestamptz
+  updatedAt    DateTime            @updatedAt @db.Timestamptz
+
+  memberships TenantMembership[]
+  auditLogs   AuditLog[]          @relation("UserAuditLogs")
+
+  @@index([email])
+  @@map("users")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model TenantMembership {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String            @db.Uuid @map("user_id")
+  tenantId  String            @db.Uuid @map("tenant_id")
+  status    MembershipStatus  @default(ACTIVE)
+  createdAt DateTime          @default(now()) @db.Timestamptz
+  updatedAt DateTime          @updatedAt @db.Timestamptz
+  deletedAt DateTime?         @db.Timestamptz
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  roles     MembershipRole[]
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, status])
+  @@map("tenant_memberships")
+}
+
+// ============================================================================
+// RBAC
+// ============================================================================
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid @map("tenant_id")
+  name        String   @db.VarChar(64)
+  description String?  @db.Text
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+  deletedAt   DateTime? @db.Timestamptz
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permissions     RolePermission[]
+  membershipRoles MembershipRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, deletedAt])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(64)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid @map("role_id")
+  permissionId String     @db.Uuid @map("permission_id")
+  createdAt    DateTime   @default(now()) @db.Timestamptz
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model MembershipRole {
+  membershipId String   @db.Uuid @map("membership_id")
+  roleId       String   @db.Uuid @map("role_id")
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  role       Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([membershipId, roleId])
+  @@map("membership_roles")
+}
+
+// ============================================================================
+// AUDIT
+// ============================================================================
+
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid @map("tenant_id")
+  actorUserId  String?  @db.Uuid @map("actor_user_id")
+  action       String   @db.VarChar(64)
+  entity       String   @db.VarChar(64)
+  entityId     String?  @db.Uuid @map("entity_id")
+  metadata     Json?
+  ip           String?  @db.VarChar(45)
+  userAgent    String?  @db.Text @map("user_agent")
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor  User?  @relation("UserAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity, entityId])
+  @@map("audit_logs")
+}

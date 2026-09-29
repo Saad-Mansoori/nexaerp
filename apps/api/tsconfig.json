@@ -3,6 +3,11 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "baseUrl": ".",
+    "paths": {
+      "@nexaerp/api/*": ["src/*"],
+      "@nexaerp/shared": ["../../packages/shared/src"]
+    },
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "sourceMap": true,
